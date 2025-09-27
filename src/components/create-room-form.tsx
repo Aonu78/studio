@@ -34,6 +34,7 @@ export function CreateRoomForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       sourceType: "url",
+      sourceUrl: "",
       mode: "watch",
     },
   })
