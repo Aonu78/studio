@@ -16,6 +16,8 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "../ui/form";
+import { useUser, useFirestore, setDocumentNonBlocking } from "@/firebase";
+import { doc } from "firebase/firestore";
 
 interface SetNameDialogProps {
   isOpen: boolean;
@@ -28,6 +30,8 @@ const formSchema = z.object({
 });
 
 export function SetNameDialog({ isOpen, onOpenChange, onNameSet }: SetNameDialogProps) {
+  const { user } = useUser();
+  const firestore = useFirestore();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -37,12 +41,22 @@ export function SetNameDialog({ isOpen, onOpenChange, onNameSet }: SetNameDialog
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
     onNameSet(values.name);
+    if (user && firestore) {
+      const userRef = doc(firestore, 'users', user.uid);
+      setDocumentNonBlocking(userRef, { displayName: values.name }, { merge: true });
+    }
     onOpenChange(false);
     form.reset();
   };
 
+  // Prevent closing the dialog by clicking outside or pressing ESC
+  const handleOpenChange = (open: boolean) => {
+    if (!open) return;
+    onOpenChange(open);
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Welcome to the Room!</DialogTitle>

@@ -10,55 +10,51 @@ import { PlaceHolderImages } from "@/lib/placeholder-images"
 import { MessageSquare, Send, Smile } from "lucide-react"
 import { EmojiSuggestions } from "./emoji-suggestions"
 import { cn } from "@/lib/utils"
+import { useUser, useFirestore, useCollection, addDocumentNonBlocking, useMemoFirebase } from "@/firebase"
+import { collection, query, orderBy, serverTimestamp, Timestamp } from "firebase/firestore"
 
 interface ChatMessage {
+  id: string;
   user: string;
+  userId: string;
   text: string;
   avatar: string;
-  time: string;
+  timestamp: Timestamp;
 }
 
-const initialMessages: ChatMessage[] = [
-    { user: 'Alice', text: 'This movie is awesome!', avatar: 'avatar-2', time: '10:30 PM' },
-    { user: 'Bob', text: 'Has anyone seen the sequel?', avatar: 'avatar-3', time: '10:31 PM' },
-    { user: 'Charlie', text: 'No spoilers please!', avatar: 'avatar-4', time: '10:32 PM' },
-    { user: 'Diana', text: '😂', avatar: 'avatar-5', time: '10:32 PM' },
-    { user: 'Alice', text: 'The cinematography is just breathtaking.', avatar: 'avatar-2', time: '10:35 PM' },
-    { user: 'Eve', text: 'I agree, the visuals are stunning.', avatar: 'avatar-6', time: '10:36 PM' },
-    { user: 'Frank', text: 'The soundtrack is also incredible.', avatar: 'avatar-1', time: '10:37 PM' },
-    { user: 'Grace', text: 'Who is the lead actor?', avatar: 'avatar-2', time: '10:38 PM' },
-    { user: 'Heidi', text: 'I think it\'s the same person from that other film.', avatar: 'avatar-3', time: '10:39 PM' },
-    { user: 'Ivan', text: 'Oh, right! He was great in that.', avatar: 'avatar-4', time: '10:40 PM' },
-    { user: 'Judy', text: 'Can we rewind a bit? I missed that last part.', avatar: 'avatar-5', time: '10:41 PM' },
-    { user: 'Mallory', text: 'The host can control playback.', avatar: 'avatar-6', time: '10:42 PM' },
-    { user: 'Oscar', text: 'This is so much better than watching alone!', avatar: 'avatar-1', time: '10:43 PM' },
-    { user: 'Peggy', text: 'Totally!', avatar: 'avatar-2', time: '10:44 PM' },
-    { user: 'Walter', text: 'Let\'s do this again next week.', avatar: 'avatar-3', time: '10:45 PM' },
-    { user: 'Nia', text: 'I\'m in!', avatar: 'avatar-5', time: '10:46 PM' },
-    { user: 'Steve', text: 'What are we watching next?', avatar: 'avatar-1', time: '10:47 PM' },
-    { user: 'Laura', text: 'Maybe a comedy?', avatar: 'avatar-2', time: '10:48 PM' },
-    { user: 'Zane', text: 'I am down for that.', avatar: 'avatar-6', time: '10:49 PM' },
-    { user: 'Megan', text: 'This has been fun!', avatar: 'avatar-4', time: '10:50 PM' },
-];
 
-
-export function ChatSidebar({ displayName }: { displayName: string }) {
-    const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+export function ChatSidebar({ displayName, roomId }: { displayName: string, roomId: string }) {
     const [chatInput, setChatInput] = useState("");
     const scrollAreaRef = useRef<HTMLDivElement>(null);
+    const { user } = useUser();
+    const firestore = useFirestore();
+
+    const messagesCollectionRef = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, `rooms/${roomId}/messages`);
+    }, [firestore, roomId]);
+
+    const messagesQuery = useMemoFirebase(() => {
+        if (!messagesCollectionRef) return null;
+        return query(messagesCollectionRef, orderBy("timestamp", "asc"));
+    }, [messagesCollectionRef]);
+    
+    const { data: messages, isLoading } = useCollection<ChatMessage>(messagesQuery);
 
     const handleSendMessage = (e: FormEvent) => {
         e.preventDefault();
-        if (chatInput.trim() === "") return;
+        if (chatInput.trim() === "" || !user || !messagesCollectionRef) return;
 
-        const newMessage: ChatMessage = {
-            user: displayName || 'You',
+        const newMessage = {
+            user: displayName || user.displayName || 'Anonymous',
+            userId: user.uid,
             text: chatInput,
-            avatar: 'avatar-1',
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            avatar: user.photoURL || 'avatar-1',
+            timestamp: serverTimestamp(),
+            expireAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
         };
 
-        setMessages(prev => [...prev, newMessage]);
+        addDocumentNonBlocking(messagesCollectionRef, newMessage);
         setChatInput("");
     };
 
@@ -79,31 +75,32 @@ export function ChatSidebar({ displayName }: { displayName: string }) {
                     Chat
                 </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto p-0">
+            <CardContent className="flex-1 flex flex-col p-0">
                 <ScrollArea className="h-full p-6" ref={scrollAreaRef}>
                     <div className="space-y-4">
-                        {messages.map((msg, index) => {
-                            const avatar = PlaceHolderImages.find(img => img.id === msg.avatar)
-                            const isYou = msg.user === displayName;
+                        {isLoading && <p>Loading messages...</p>}
+                        {messages && messages.map((msg) => {
+                            const avatar = PlaceHolderImages.find(img => img.id === msg.avatar) || (msg.avatar && !msg.avatar.startsWith('avatar-') ? { imageUrl: msg.avatar } : null);
+                            const isYou = msg.userId === user?.uid;
                             return (
-                                <div key={index} className={cn("flex items-start gap-3", isYou && "justify-end")}>
+                                <div key={msg.id} className={cn("flex items-start gap-3", isYou && "justify-end")}>
                                     {!isYou && (
                                         <Avatar className="h-8 w-8">
                                             {avatar && <AvatarImage src={avatar.imageUrl} />}
-                                            <AvatarFallback>{msg.user.charAt(0)}</AvatarFallback>
+                                            <AvatarFallback>{msg.user?.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                     )}
                                     <div className={cn("rounded-lg px-3 py-2 max-w-xs", isYou ? 'bg-primary text-primary-foreground' : 'bg-secondary')}>
                                         <div className="flex items-baseline gap-2">
                                             {!isYou && <p className="text-xs font-semibold">{msg.user}</p>}
-                                            <p className="text-xs text-muted-foreground">{msg.time}</p>
+                                            <p className="text-xs text-muted-foreground">{msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                         </div>
                                         <p className="text-sm">{msg.text}</p>
                                     </div>
                                     {isYou && (
                                         <Avatar className="h-8 w-8">
                                             {avatar && <AvatarImage src={avatar.imageUrl} />}
-                                            <AvatarFallback>{msg.user.charAt(0)}</AvatarFallback>
+                                            <AvatarFallback>{msg.user?.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                     )}
                                 </div>
@@ -122,12 +119,13 @@ export function ChatSidebar({ displayName }: { displayName: string }) {
                             value={chatInput}
                             onChange={(e) => setChatInput(e.target.value)}
                             className="pr-10"
+                            disabled={!user}
                         />
                         <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8">
                             <Smile className="h-5 w-5 text-muted-foreground" />
                         </Button>
                     </div>
-                    <Button type="submit" size="icon">
+                    <Button type="submit" size="icon" disabled={!user}>
                         <Send className="h-4 w-4" />
                         <span className="sr-only">Send Message</span>
                     </Button>

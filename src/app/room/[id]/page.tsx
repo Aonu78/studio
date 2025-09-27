@@ -9,8 +9,9 @@ import { AVControls } from "@/components/room/av-controls";
 import { cn } from "@/lib/utils";
 import { SettingsDialog } from "@/components/room/settings-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useUser } from "@/firebase";
+import { useUser, setDocumentNonBlocking, useFirestore } from "@/firebase";
 import { SetNameDialog } from "@/components/room/set-name-dialog";
+import { doc } from "firebase/firestore";
 
 
 export default function RoomPage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,6 +26,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   const screenStreamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
   const [displayName, setDisplayName] = useState(user?.displayName || "");
 
   useEffect(() => {
@@ -34,6 +36,14 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
       setDisplayName(user.displayName);
     }
   }, [isUserLoading, user]);
+
+  const handleNameSet = (name: string) => {
+    setDisplayName(name);
+    if (user && firestore) {
+      const userRef = doc(firestore, 'users', user.uid);
+      setDocumentNonBlocking(userRef, { displayName: name }, { merge: true });
+    }
+  }
 
   const handleToggleScreenShare = async () => {
     if (isScreenSharing) {
@@ -117,19 +127,17 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
         isChatOpen && "lg:grid-cols-[1fr_auto]"
       )}>
         <div className="relative flex flex-col overflow-hidden">
-          <main className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
+          <main className="flex-1 flex flex-col p-4 gap-4 overflow-auto">
             <VideoPlayer 
               roomId={roomId}
               screenShareStream={isScreenSharing ? screenStreamRef.current : null} 
             />
-            <div className="flex-1 overflow-y-auto">
-              <ParticipantsGrid 
-                localStream={localStream} 
-                isMicOn={isMicOn} 
-                isCameraOn={isCameraOn} 
-                displayName={displayName}
-              />
-            </div>
+            <ParticipantsGrid 
+              localStream={localStream} 
+              isMicOn={isMicOn} 
+              isCameraOn={isCameraOn} 
+              displayName={displayName}
+            />
           </main>
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
             <AVControls 
@@ -146,7 +154,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
           </div>
         </div>
         <div className={cn("h-full", !isChatOpen && "hidden")}>
-          <ChatSidebar displayName={displayName} />
+          <ChatSidebar displayName={displayName} roomId={roomId} />
         </div>
       </div>
       <SettingsDialog
@@ -156,7 +164,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
        <SetNameDialog
         isOpen={isNameDialogOpen}
         onOpenChange={setIsNameDialogOpen}
-        onNameSet={setDisplayName}
+        onNameSet={handleNameSet}
       />
     </div>
   );
