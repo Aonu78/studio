@@ -30,7 +30,7 @@ export default function Home() {
     {
       icon: <Gift className="h-10 w-10 text-primary" />,
       title: "Free to use",
-      description: "SyncWatch is free to use for you and your friends.",
+      description: "WatchMates is free to use for you and your friends.",
     },
   ];
 
@@ -133,7 +133,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t">
         <div className="container mx-auto flex items-center justify-between p-4">
-            <p className="text-sm text-muted-foreground">&copy; 2024 SyncWatch. All rights reserved.</p>
+            <p className="text-sm text-muted-foreground">&copy; 2024 WatchMates. All rights reserved.</p>
             <div className="flex gap-4">
                 <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">Privacy Policy</Link>
                 <Link href="#" className="text-sm text-muted-foreground hover:text-foreground">Terms of Service</Link>

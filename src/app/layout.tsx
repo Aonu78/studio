@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
-  title: 'SyncWatch',
+  title: 'WatchMates',
   description: 'Watch videos with friends, in sync.',
 };
 
@@ -30,5 +30,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-    

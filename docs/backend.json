@@ -5,7 +5,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user of the SyncWatch platform.",
+      "description": "Represents a user of the WatchMates platform.",
       "properties": {
         "id": {
           "type": "string",
@@ -300,8 +300,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support SyncWatch's features, emphasizing security, scalability, and ease of debugging. It incorporates denormalization for authorization independence and structural segregation for simplified security rules. User data is stored in a dedicated collection. Rooms are stored separately for easy listing and querying. Chat messages, emoji reactions, and room user associations are structured as subcollections to maintain data integrity and optimize queries. The design leverages path-based ownership and membership maps for access control, ensuring secure list operations (QAPs) and atomic operations across the platform.\n\nAuthorization Independence is achieved by denormalizing authorization data (e.g., hostId, members) into subcollections. For example, each `ChatMessage` includes the `roomId`, allowing rules to validate the user's access to a room's messages without needing to perform `get()` operations on the parent `Room` document. The RoomUser document contains the `isHost` and `isConnected` flags, allowing rules to easily validate write access based on the user's role in the room.\n\nQAPs (Rules are not Filters) is achieved by segregating data based on access requirements and leveraging denormalization. By storing messages within the `/rooms/{roomId}/messages/{messageId}` subcollection, we can easily secure list operations. The presence of `roomId` within the message allows us to validate user access based on their membership in the room."
+    "reasoning": "The Firestore structure is designed to support WatchMates's features, emphasizing security, scalability, and ease of debugging. It incorporates denormalization for authorization independence and structural segregation for simplified security rules. User data is stored in a dedicated collection. Rooms are stored separately for easy listing and querying. Chat messages, emoji reactions, and room user associations are structured as subcollections to maintain data integrity and optimize queries. The design leverages path-based ownership and membership maps for access control, ensuring secure list operations (QAPs) and atomic operations across the platform.\n\nAuthorization Independence is achieved by denormalizing authorization data (e.g., hostId, members) into subcollections. For example, each `ChatMessage` includes the `roomId`, allowing rules to validate the user's access to a room's messages without needing to perform `get()` operations on the parent `Room` document. The RoomUser document contains the `isHost` and `isConnected` flags, allowing rules to easily validate write access based on the user's role in the room.\n\nQAPs (Rules are not Filters) is achieved by segregating data based on access requirements and leveraging denormalization. By storing messages within the `/rooms/{roomId}/messages/{messageId}` subcollection, we can easily secure list operations. The presence of `roomId` within the message allows us to validate user access based on their membership in the room."
   }
 }
-
-    
