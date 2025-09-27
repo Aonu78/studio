@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, FormEvent } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +11,14 @@ import { MessageSquare, Send, Smile } from "lucide-react"
 import { EmojiSuggestions } from "./emoji-suggestions"
 import { cn } from "@/lib/utils"
 
-const mockMessages = [
+interface ChatMessage {
+  user: string;
+  text: string;
+  avatar: string;
+  time: string;
+}
+
+const initialMessages: ChatMessage[] = [
   { user: 'Alice', text: 'This movie is awesome!', avatar: 'avatar-2', time: '10:30 PM' },
   { user: 'You', text: 'Right? I love this scene!', avatar: 'avatar-1', time: '10:31 PM' },
   { user: 'Bob', text: 'Has anyone seen the sequel?', avatar: 'avatar-3', time: '10:31 PM' },
@@ -23,10 +30,26 @@ const mockMessages = [
 
 
 export function ChatSidebar() {
+    const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
     const [chatInput, setChatInput] = useState("");
 
+    const handleSendMessage = (e: FormEvent) => {
+        e.preventDefault();
+        if (chatInput.trim() === "") return;
+
+        const newMessage: ChatMessage = {
+            user: 'You',
+            text: chatInput,
+            avatar: 'avatar-1',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+
+        setMessages(prev => [...prev, newMessage]);
+        setChatInput("");
+    };
+
     return (
-        <Card className="flex flex-col h-full border-l rounded-none">
+        <Card className="flex flex-col h-full border-l rounded-none w-[350px]">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-headline">
                     <MessageSquare className="h-6 w-6" />
@@ -36,7 +59,7 @@ export function ChatSidebar() {
             <CardContent className="flex-1 overflow-hidden p-0">
                 <ScrollArea className="h-full p-4">
                     <div className="space-y-4">
-                        {mockMessages.map((msg, index) => {
+                        {messages.map((msg, index) => {
                             const avatar = PlaceHolderImages.find(img => img.id === msg.avatar)
                             const isYou = msg.user === 'You';
                             return (
@@ -68,7 +91,7 @@ export function ChatSidebar() {
             </CardContent>
             <CardFooter className="flex-col items-start gap-2 border-t pt-4">
                 <EmojiSuggestions text={chatInput} onEmojiSelect={(emoji) => setChatInput(prev => prev + emoji)} />
-                <div className="flex w-full items-center space-x-2">
+                <form onSubmit={handleSendMessage} className="flex w-full items-center space-x-2">
                     <div className="relative flex-1">
                         <Input 
                             type="text" 
@@ -83,8 +106,9 @@ export function ChatSidebar() {
                     </div>
                     <Button type="submit" size="icon">
                         <Send className="h-4 w-4" />
+                        <span className="sr-only">Send Message</span>
                     </Button>
-                </div>
+                </form>
             </CardFooter>
         </Card>
     )
