@@ -10,8 +10,7 @@ import { PlaceHolderImages } from "@/lib/placeholder-images"
 import { MessageSquare, Send, Smile } from "lucide-react"
 import { EmojiSuggestions } from "./emoji-suggestions"
 import { cn } from "@/lib/utils"
-import { useUser, useFirestore, useCollection, addDocumentNonBlocking, useMemoFirebase } from "@/firebase"
-import { collection, query, orderBy, serverTimestamp, Timestamp } from "firebase/firestore"
+import { useUser } from "@/firebase"
 
 interface ChatMessage {
   id: string;
@@ -19,42 +18,43 @@ interface ChatMessage {
   userId: string;
   text: string;
   avatar: string;
-  timestamp: Timestamp;
+  timestamp: Date;
 }
+
+const mockMessages: ChatMessage[] = [
+    { id: '1', user: 'Alice', userId: '2', text: 'Hey everyone! Excited for the movie.', avatar: 'avatar-2', timestamp: new Date(Date.now() - 1000 * 60 * 5) },
+    { id: '2', user: 'Bob', userId: '3', text: 'Me too! I love this one.', avatar: 'avatar-3', timestamp: new Date(Date.now() - 1000 * 60 * 4) },
+    { id: '3', user: 'Charlie', userId: '4', text: 'Did someone bring snacks?', avatar: 'avatar-4', timestamp: new Date(Date.now() - 1000 * 60 * 3) },
+    { id: '4', user: 'Diana', userId: '5', text: '🍿🍿🍿', avatar: 'avatar-5', timestamp: new Date(Date.now() - 1000 * 60 * 2) },
+    { id: '5', user: 'Alice', userId: '2', text: 'Awesome!', avatar: 'avatar-2', timestamp: new Date(Date.now() - 1000 * 60 * 1) },
+    { id: '6', user: 'You', userId: '1', text: 'Let\'s get this party started!', avatar: 'avatar-1', timestamp: new Date() },
+    { id: '7', user: 'Bob', userId: '3', text: 'Ready when you are!', avatar: 'avatar-3', timestamp: new Date() },
+    { id: '8', user: 'Charlie', userId: '4', text: 'Hit play!', avatar: 'avatar-4', timestamp: new Date() },
+    { id: '9', user: 'Diana', userId: '5', text: 'Woooo!', avatar: 'avatar-5', timestamp: new Date() },
+    { id: '10', user: 'Alice', userId: '2', text: 'Here we go!', avatar: 'avatar-2', timestamp: new Date() },
+];
 
 
 export function ChatSidebar({ displayName, roomId }: { displayName: string, roomId: string }) {
     const [chatInput, setChatInput] = useState("");
+    const [messages, setMessages] = useState(mockMessages);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const { user } = useUser();
-    const firestore = useFirestore();
-
-    const messagesCollectionRef = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return collection(firestore, `rooms/${roomId}/messages`);
-    }, [firestore, roomId]);
-
-    const messagesQuery = useMemoFirebase(() => {
-        if (!messagesCollectionRef) return null;
-        return query(messagesCollectionRef, orderBy("timestamp", "asc"));
-    }, [messagesCollectionRef]);
-    
-    const { data: messages, isLoading } = useCollection<ChatMessage>(messagesQuery);
 
     const handleSendMessage = (e: FormEvent) => {
         e.preventDefault();
-        if (chatInput.trim() === "" || !messagesCollectionRef || !displayName) return;
+        if (chatInput.trim() === "" || !displayName) return;
 
-        const newMessage = {
+        const newMessage: ChatMessage = {
+            id: (messages.length + 1).toString(),
             user: displayName,
             userId: user?.uid || 'guest',
             text: chatInput,
             avatar: user?.photoURL || 'avatar-1',
-            timestamp: serverTimestamp(),
-            expireAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
+            timestamp: new Date(),
         };
 
-        addDocumentNonBlocking(messagesCollectionRef, newMessage);
+        setMessages(prev => [...prev, newMessage]);
         setChatInput("");
     };
 
@@ -78,10 +78,9 @@ export function ChatSidebar({ displayName, roomId }: { displayName: string, room
                 </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col p-0 min-h-0">
-                <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
+                <ScrollArea className="flex-1 p-6" ref={scrollAreaRef} style={{ height: '400px' }}>
                     <div className="space-y-4">
-                        {isLoading && <p>Loading messages...</p>}
-                        {messages && messages.map((msg) => {
+                        {messages.map((msg) => {
                             const avatar = PlaceHolderImages.find(img => img.id === msg.avatar) || (msg.avatar && !msg.avatar.startsWith('avatar-') ? { imageUrl: msg.avatar } : null);
                             const isYou = msg.userId === (user?.uid || 'guest') && msg.user === displayName;
                             return (
@@ -95,7 +94,7 @@ export function ChatSidebar({ displayName, roomId }: { displayName: string, room
                                     <div className={cn("rounded-lg px-3 py-2 max-w-xs", isYou ? 'bg-primary text-primary-foreground' : 'bg-secondary')}>
                                         <div className="flex items-baseline gap-2">
                                             {!isYou && <p className="text-xs font-semibold">{msg.user}</p>}
-                                            <p className="text-xs text-muted-foreground">{msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                            <p className="text-xs text-muted-foreground">{msg.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                         </div>
                                         <p className="text-sm">{msg.text}</p>
                                     </div>

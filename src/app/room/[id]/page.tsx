@@ -9,9 +9,8 @@ import { AVControls } from "@/components/room/av-controls";
 import { cn } from "@/lib/utils";
 import { SettingsDialog } from "@/components/room/settings-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, setDocumentNonBlocking, useFirestore, useAuth, useMemoFirebase, addDocumentNonBlocking } from "@/firebase";
+import { useUser, useAuth } from "@/firebase";
 import { SetNameDialog } from "@/components/room/set-name-dialog";
-import { doc, setDoc, serverTimestamp, collection, writeBatch } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
 
 
@@ -28,12 +27,11 @@ export default function RoomPage({ params }: { params: { id: string } }) {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
-  const firestore = useFirestore();
   const [displayName, setDisplayName] = useState(user?.displayName || "");
 
 
   useEffect(() => {
-    if (isUserLoading || !firestore || !auth) return;
+    if (isUserLoading || !auth) return;
     
     if (!user) {
       signInAnonymously(auth).catch((error) => {
@@ -47,60 +45,19 @@ export default function RoomPage({ params }: { params: { id: string } }) {
       return; 
     }
 
+    if (!user.displayName && !user.isAnonymous) {
+      setDisplayName(user.displayName || '');
+    }
+
     // Only prompt for name if it's not already set
     if (!displayName && user) {
         setIsNameDialogOpen(true);
     }
-  }, [isUserLoading, user, auth, firestore, toast, displayName]);
-
-  const joinRoom = async (name: string) => {
-    if (!firestore || !user) return;
-
-    const roomRef = doc(firestore, 'rooms', roomId);
-    const roomUserRef = doc(firestore, `rooms/${roomId}/users`, user.uid);
-
-    try {
-      const batch = writeBatch(firestore);
-
-      // Set the room document
-      batch.set(roomRef, {
-          createdAt: serverTimestamp(),
-          hostId: user.uid,
-      }, { merge: true });
-
-      // Set the user document in the subcollection
-      batch.set(roomUserRef, {
-          displayName: name,
-          isConnected: true,
-          isHost: true, 
-          isMuted: !isMicOn,
-          cameraEnabled: isCameraOn,
-      }, { merge: true });
-      
-      await batch.commit();
-
-    } catch (error) {
-      console.error("Error joining room:", error);
-      toast({
-        variant: "destructive",
-        title: "Failed to Join Room",
-        description: "Could not write user data to the room.",
-      });
-    }
-  };
-
+  }, [isUserLoading, user, auth, toast, displayName]);
 
   const handleNameSet = (name: string) => {
     setDisplayName(name);
     setIsNameDialogOpen(false);
-    
-    // Only save display name for non-anonymous users
-    if (user && firestore && !user.isAnonymous) {
-      const userRef = doc(firestore, 'users', user.uid);
-      setDocumentNonBlocking(userRef, { displayName: name }, { merge: true });
-    }
-    
-    joinRoom(name);
   }
 
   const handleToggleScreenShare = async () => {
@@ -184,8 +141,8 @@ export default function RoomPage({ params }: { params: { id: string } }) {
         "flex-1 grid grid-cols-1 overflow-hidden",
         isChatOpen && "lg:grid-cols-[1fr_auto]"
       )}>
-        <div className="relative flex flex-col overflow-hidden">
-          <main className="flex-1 flex flex-col p-4 gap-4 overflow-auto">
+        <div className="relative flex flex-col overflow-hidden p-4 gap-4">
+          <main className="flex-1 flex flex-col gap-4 overflow-auto">
             <VideoPlayer 
               roomId={roomId}
               screenShareStream={isScreenSharing ? screenStreamRef.current : null} 
