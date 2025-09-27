@@ -1,40 +1,47 @@
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, initializeFirestore, memoryLocalCache, Firestore } from 'firebase/firestore'
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
+import { getAuth, type Auth } from 'firebase/auth';
+import { getFirestore, initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore'
 
-let firestoreInstance: Firestore | null = null;
+type FirebaseServices = {
+  firebaseApp: FirebaseApp;
+  auth: Auth;
+  firestore: Firestore;
+};
+
+let firebaseServices: FirebaseServices | null = null;
+
+// This function is the single source of truth for Firebase initialization.
+function getFirebaseServices(): FirebaseServices {
+  if (firebaseServices) {
+    return firebaseServices;
+  }
+
+  const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  
+  // We are now also caching the firestore instance to prevent re-initialization
+  const db = initializeFirestore(app, {
+    localCache: memoryLocalCache(),
+  });
+  
+  const auth = getAuth(app);
+  
+  firebaseServices = {
+    firebaseApp: app,
+    auth: auth,
+    firestore: db
+  };
+
+  return firebaseServices;
+}
+
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
-  if (!getApps().length) {
-    // Important! initializeApp() is called without any arguments because Firebase App Hosting
-    // integrates with the initializeApp() function to provide the environment variables needed to
-    // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
-    // without arguments.
-    let firebaseApp = initializeApp(firebaseConfig);
-
-    return getSdks(firebaseApp);
-  }
-
-  // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
-}
-
-export function getSdks(firebaseApp: FirebaseApp) {
-  if (!firestoreInstance) {
-    firestoreInstance = initializeFirestore(firebaseApp, {
-      localCache: memoryLocalCache(),
-    });
-  }
-
-  return {
-    firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: firestoreInstance,
-  };
+  // We always get the services from our singleton provider function.
+  return getFirebaseServices();
 }
 
 export * from './provider';
