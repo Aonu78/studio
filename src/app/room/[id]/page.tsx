@@ -9,9 +9,9 @@ import { AVControls } from "@/components/room/av-controls";
 import { cn } from "@/lib/utils";
 import { SettingsDialog } from "@/components/room/settings-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, setDocumentNonBlocking, useFirestore, useAuth, useMemoFirebase } from "@/firebase";
+import { useUser, setDocumentNonBlocking, useFirestore, useAuth, useMemoFirebase, addDocumentNonBlocking } from "@/firebase";
 import { SetNameDialog } from "@/components/room/set-name-dialog";
-import { doc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, collection } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
 
 
@@ -31,31 +31,57 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   const firestore = useFirestore();
   const [displayName, setDisplayName] = useState(user?.displayName || "");
 
+  const roomRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return doc(firestore, 'rooms', roomId);
+  }, [firestore, roomId]);
+
+  const roomUserRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, `rooms/${roomId}/users`, user.uid);
+  }, [firestore, roomId, user]);
+
+
   useEffect(() => {
-    if (!isUserLoading) {
-      if (!user) {
-        // If no user is logged in, sign in anonymously
-        if (auth) {
-          signInAnonymously(auth).catch((error) => {
-            console.error("Anonymous sign-in failed:", error);
-            toast({
-              variant: "destructive",
-              title: "Authentication Error",
-              description: "Could not join the room as a guest.",
-            });
+    if (isUserLoading || !firestore) return;
+    
+    if (!user) {
+      if (auth) {
+        signInAnonymously(auth).catch((error) => {
+          console.error("Anonymous sign-in failed:", error);
+          toast({
+            variant: "destructive",
+            title: "Authentication Error",
+            description: "Could not join the room as a guest.",
           });
-        }
-      } else if (!user.displayName && !user.isAnonymous) {
-        // Logged-in user without a display name
-        setIsNameDialogOpen(true);
-      } else if (user.isAnonymous && !displayName) {
-        // Anonymous user needs to set a name
-        setIsNameDialogOpen(true);
-      } else if (user.displayName) {
-        setDisplayName(user.displayName);
+        });
       }
+      return; 
     }
-  }, [isUserLoading, user, auth, toast, displayName]);
+
+    if (!displayName && !user.isAnonymous) {
+      setIsNameDialogOpen(true);
+    } else if (user.isAnonymous && !displayName) {
+      setIsNameDialogOpen(true);
+    } else {
+        if(roomRef) {
+            setDocumentNonBlocking(roomRef, {
+                createdAt: serverTimestamp(),
+                hostId: user.uid,
+            }, { merge: true });
+        }
+
+        if(roomUserRef) {
+            setDocumentNonBlocking(roomUserRef, {
+                displayName: user.displayName || displayName,
+                isConnected: true,
+                isHost: true, 
+                isMuted: !isMicOn,
+                cameraEnabled: isCameraOn,
+            }, { merge: true });
+        }
+    }
+  }, [isUserLoading, user, auth, toast, displayName, firestore, roomRef, roomUserRef, isMicOn, isCameraOn]);
 
 
   const handleNameSet = (name: string) => {
