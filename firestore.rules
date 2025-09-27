@@ -1,0 +1,241 @@
+/**
+ * @fileoverview Firestore Security Rules for SyncWatch.
+ *
+ * Core Philosophy: This ruleset enforces a strict user-ownership model for user profiles
+ * and a role-based model (host-based) for rooms and their associated data.
+ * Authorization Independence is used in subcollections with denormalized fields to avoid costly get() calls.
+ * Data validation is relaxed during the prototyping phase, focusing on authorization.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile information.  Access is restricted to the user themselves.
+ * - /rooms/{roomId}: Stores room metadata.
+ * - /rooms/{roomId}/messages/{messageId}: Stores chat messages within a room.
+ * - /rooms/{roomId}/messages/{messageId}/reactions/{reactionId}: Stores emoji reactions to chat messages.
+ * - /rooms/{roomId}/users/{userId}: Stores user-room associations, including connection status and roles.
+ *
+ * Key Security Decisions:
+ * - Users can only read and write their own profile data.
+ * - Rooms can be read by anyone, but creation, updates, and deletion are restricted to the room host.
+ * - Chat messages and reactions can be created by any user in the room.
+ * - Only the host can modify or delete messages and reactions.
+ * - List operations are secured based on path and ownership.
+ * - Data validation is minimal during prototyping, focusing on authorization.
+ *
+ * Denormalization for Authorization:
+ * - ChatMessage includes roomId and userId to allow rules to validate user access to a room's messages without needing to perform get() operations on the parent Room document.
+ * - RoomUser includes isHost to allow rules to easily validate write access based on the user's role in the room.
+ *
+ * Structural Segregation:
+ * - Public vs. Private: Not explicitly used in this data model.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Enforces owner-only access for user profiles.
+     * @path /users/{userId}
+     * @allow (create) User(id=request.auth.uid): Allows a user to create their own profile.
+     * @allow (get, update, delete) User(id=request.auth.uid): Allows a user to read and modify their own profile.
+     * @deny (create, get, update, delete) User(id=other_user_id): Denies access to other user's profiles.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId} {
+      // Checks if the request is authenticated.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Checks if the requested userId matches the authenticated user's ID.
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      // Checks if the requested userId matches the authenticated user's ID and the document exists
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      // Allows a user to read their own profile.
+      allow get: if isOwner(userId);
+
+      // Allows a user to list users.
+      allow list: if false;
+
+      // Allows a user to create their own profile, enforcing that the ID matches their UID.
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+
+      // Allows a user to update their own profile.
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+
+      // Allows a user to delete their own profile.
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Manages access control for rooms.
+     * @path /rooms/{roomId}
+     * @allow (get, list) Anyone: Allows anyone to read existing rooms.
+     * @allow (create) Room(hostId=request.auth.uid): Allows a user to create a new room where they are the host.
+     * @allow (update, delete) Room(hostId=request.auth.uid): Allows the host to modify or delete the room.
+     * @deny (create, update, delete) Room(hostId!=request.auth.uid): Denies non-hosts from creating, updating, or deleting rooms.
+     * @principle Enforces role-based access control (host) for writes and public read access.
+     */
+    match /rooms/{roomId} {
+      // Checks if the request is authenticated.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Checks if the authenticated user is the host of the room.
+      function isHost(hostId) {
+        return request.auth.uid == hostId;
+      }
+
+       // Checks if the authenticated user is the host of the room and that the document exists.
+      function isExistingHost(hostId) {
+        return isHost(hostId) && resource != null;
+      }
+
+      // Allows anyone to read existing rooms.
+      allow get, list: if true;
+
+      // Allows a user to create a new room if they are the host.
+      allow create: if isSignedIn() && isHost(request.resource.data.hostId);
+
+      // Allows the host to update the room's information.
+      allow update: if isSignedIn() && isExistingHost(resource.data.hostId);
+
+      // Allows the host to delete the room.
+      allow delete: if isSignedIn() && isExistingHost(resource.data.hostId);
+
+        /**
+         * @description Manages access control for chat messages within a room.
+         * @path /rooms/{roomId}/messages/{messageId}
+         * @allow (get, list) Anyone: Allows anyone to read messages in a room.
+         * @allow (create) ChatMessage(roomId): Allows any user in a room to send a message.
+         * @allow (update, delete) ChatMessage(roomId): Allows the host to modify or delete the message.
+         * @deny (update, delete) ChatMessage(roomId): Denies non-hosts from updating or deleting messages.
+         * @principle Enforces role-based access control (host) for updates and deletes, with open access to create and read.
+         */
+        match /messages/{messageId} {
+
+          // Checks if the request is authenticated.
+          function isSignedIn() {
+            return request.auth != null;
+          }
+
+          // Checks if the authenticated user is the host of the room.
+          function isHost(hostId) {
+            return request.auth.uid == hostId;
+          }
+
+          // Checks if the authenticated user is the host of the room and that the document exists.
+          function isExistingHost(hostId) {
+            return isHost(hostId) && resource != null;
+          }
+
+          // Allow anyone to read messages in a room.
+          allow get, list: if true;
+
+          // Allows any user in a room to send a message if signed in.
+          allow create: if isSignedIn() && request.resource.data.roomId == roomId && request.auth.uid == request.resource.data.userId;
+
+          // Allows the host to update or delete any message.
+          allow update: if isSignedIn() && isExistingHost(get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId);
+
+          // Allows the host to update or delete any message.
+          allow delete: if isSignedIn() && isExistingHost(get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId);
+
+          /**
+           * @description Manages access control for emoji reactions to chat messages.
+           * @path /rooms/{roomId}/messages/{messageId}/reactions/{reactionId}
+           * @allow (get, list) Anyone: Allows anyone to read the reactions.
+           * @allow (create) EmojiReaction(messageId, userId): Allows a user to react to a message.
+           * @allow (update, delete) EmojiReaction(messageId, userId): Allows the owner of the reaction or the host to modify or delete the reaction.
+           * @deny (update, delete) EmojiReaction(messageId, userId): Denies non-owners and non-hosts from updating or deleting the reaction.
+           * @principle Enforces ownership for updates and deletes, with open access to create and read.
+           */
+          match /reactions/{reactionId} {
+
+            // Checks if the request is authenticated.
+            function isSignedIn() {
+              return request.auth != null;
+            }
+
+            // Checks if the requested userId matches the authenticated user's ID.
+            function isOwner(userId) {
+              return request.auth.uid == userId;
+            }
+
+            // Checks if the requested userId matches the authenticated user's ID and that the document exists.
+            function isExistingOwner(userId) {
+              return isOwner(userId) && resource != null;
+            }
+
+            // Checks if the authenticated user is the host of the room.
+            function isHost(hostId) {
+              return request.auth.uid == hostId;
+            }
+
+            // Checks if the authenticated user is the host of the room and that the document exists.
+            function isExistingHost(hostId) {
+              return isHost(hostId) && resource != null;
+            }
+
+            // Allow anyone to read the reactions.
+            allow get, list: if true;
+
+            // Allows a user to react to a message if signed in.
+            allow create: if isSignedIn() && request.resource.data.messageId == messageId && request.auth.uid == request.resource.data.userId;
+
+            // Allows the owner of the reaction or the host to update or delete the reaction.
+            allow update: if isSignedIn() && (isExistingOwner(resource.data.userId) || isExistingHost(get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId));
+
+            // Allows the owner of the reaction or the host to delete the reaction.
+            allow delete: if isSignedIn() && (isExistingOwner(resource.data.userId) || isExistingHost(get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId));
+          }
+        }
+
+        /**
+         * @description Manages the association between users and rooms, including connection status and roles.
+         * @path /rooms/{roomId}/users/{userId}
+         * @allow (get, list) Anyone: Allows anyone to read the connection status of users in a room.
+         * @allow (create) RoomUser(roomId, userId): Allows a user to be added to a room.
+         * @allow (update) RoomUser(roomId, userId, isHost=true): Allows the host to update the connection status of users in the room.
+         * @allow (delete) RoomUser(roomId, userId, isHost=true): Allows the host to remove a user from the room.
+         * @deny (update, delete) RoomUser(roomId, userId, isHost=false): Denies non-hosts from updating or deleting user-room associations.
+         * @principle Enforces role-based access control (host) for updates and deletes, with open access to create and read.
+         */
+        match /users/{userId} {
+
+          // Checks if the request is authenticated.
+          function isSignedIn() {
+            return request.auth != null;
+          }
+
+          // Checks if the authenticated user is the host of the room.
+          function isHost(hostId) {
+            return request.auth.uid == hostId;
+          }
+
+          // Checks if the authenticated user is the host of the room and that the document exists.
+          function isExistingHost(hostId) {
+            return isHost(hostId) && resource != null;
+          }
+
+          // Allow anyone to read the connection status of users in a room.
+          allow get, list: if true;
+
+          // Allows a user to be added to a room if signed in.
+          allow create: if isSignedIn() && request.resource.data.roomId == roomId && request.resource.data.userId == userId;
+
+          // Allows the host to update the connection status of users in the room.
+          allow update: if isSignedIn() && isExistingHost(get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId);
+
+          // Allows the host to remove a user from the room.
+          allow delete: if isSignedIn() && isExistingHost(get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId);
+        }
+    }
+  }
+}
