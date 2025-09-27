@@ -9,9 +9,10 @@ import { AVControls } from "@/components/room/av-controls";
 import { cn } from "@/lib/utils";
 import { SettingsDialog } from "@/components/room/settings-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useUser, setDocumentNonBlocking, useFirestore } from "@/firebase";
+import { useUser, setDocumentNonBlocking, useFirestore, useAuth, useMemoFirebase } from "@/firebase";
 import { SetNameDialog } from "@/components/room/set-name-dialog";
 import { doc } from "firebase/firestore";
+import { signInAnonymously } from "firebase/auth";
 
 
 export default function RoomPage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,22 +27,46 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   const screenStreamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const firestore = useFirestore();
   const [displayName, setDisplayName] = useState(user?.displayName || "");
 
   useEffect(() => {
-    if (!isUserLoading && !user?.displayName) {
-      setIsNameDialogOpen(true);
-    } else if (user?.displayName) {
-      setDisplayName(user.displayName);
+    if (!isUserLoading) {
+      if (!user) {
+        // If no user is logged in, sign in anonymously
+        if (auth) {
+          signInAnonymously(auth).catch((error) => {
+            console.error("Anonymous sign-in failed:", error);
+            toast({
+              variant: "destructive",
+              title: "Authentication Error",
+              description: "Could not join the room as a guest.",
+            });
+          });
+        }
+      } else if (!user.displayName && !user.isAnonymous) {
+        // Logged-in user without a display name
+        setIsNameDialogOpen(true);
+      } else if (user.isAnonymous && !displayName) {
+        // Anonymous user needs to set a name
+        setIsNameDialogOpen(true);
+      } else if (user.displayName) {
+        setDisplayName(user.displayName);
+      }
     }
-  }, [isUserLoading, user]);
+  }, [isUserLoading, user, auth, toast, displayName]);
+
 
   const handleNameSet = (name: string) => {
     setDisplayName(name);
     if (user && firestore) {
       const userRef = doc(firestore, 'users', user.uid);
-      setDocumentNonBlocking(userRef, { displayName: name }, { merge: true });
+      // For anonymous users, we don't need to persist the name in Firestore
+      // unless we want to upgrade the account later. For simplicity, we just set it in the state.
+      if (!user.isAnonymous) {
+        setDocumentNonBlocking(userRef, { displayName: name }, { merge: true });
+      }
     }
   }
 
@@ -108,7 +133,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     return () => {
         localStream?.getTracks().forEach(track => track.stop());
     }
-  }, [isCameraOn, isMicOn]);
+  }, [isCameraOn, isMicOn, toast]);
 
 
   useEffect(() => {
