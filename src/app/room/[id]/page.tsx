@@ -11,7 +11,7 @@ import { SettingsDialog } from "@/components/room/settings-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, setDocumentNonBlocking, useFirestore, useAuth, useMemoFirebase, addDocumentNonBlocking } from "@/firebase";
 import { SetNameDialog } from "@/components/room/set-name-dialog";
-import { doc, setDoc, serverTimestamp, collection } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, collection, writeBatch } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
 
 
@@ -31,68 +31,76 @@ export default function RoomPage({ params }: { params: { id: string } }) {
   const firestore = useFirestore();
   const [displayName, setDisplayName] = useState(user?.displayName || "");
 
-  const roomRef = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return doc(firestore, 'rooms', roomId);
-  }, [firestore, roomId]);
-
-  const roomUserRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, `rooms/${roomId}/users`, user.uid);
-  }, [firestore, roomId, user]);
-
 
   useEffect(() => {
-    if (isUserLoading || !firestore) return;
+    if (isUserLoading || !firestore || !auth) return;
     
     if (!user) {
-      if (auth) {
-        signInAnonymously(auth).catch((error) => {
-          console.error("Anonymous sign-in failed:", error);
-          toast({
-            variant: "destructive",
-            title: "Authentication Error",
-            description: "Could not join the room as a guest.",
-          });
+      signInAnonymously(auth).catch((error) => {
+        console.error("Anonymous sign-in failed:", error);
+        toast({
+          variant: "destructive",
+          title: "Authentication Error",
+          description: "Could not join the room as a guest.",
         });
-      }
+      });
       return; 
     }
 
-    if (!displayName) {
+    // Only prompt for name if it's not already set
+    if (!displayName && user) {
         setIsNameDialogOpen(true);
-    } else {
-        if(roomRef) {
-            setDocumentNonBlocking(roomRef, {
-                createdAt: serverTimestamp(),
-                hostId: user.uid,
-            }, { merge: true });
-        }
-
-        if(roomUserRef) {
-            // We ensure the room document is created before trying to add the user
-            setTimeout(() => {
-                setDocumentNonBlocking(roomUserRef, {
-                    displayName: displayName,
-                    isConnected: true,
-                    isHost: true, 
-                    isMuted: !isMicOn,
-                    cameraEnabled: isCameraOn,
-                }, { merge: true });
-            }, 500); // A small delay to allow room creation
-        }
     }
-  }, [isUserLoading, user, auth, toast, displayName, firestore, roomRef, roomUserRef, isMicOn, isCameraOn]);
+  }, [isUserLoading, user, auth, firestore, toast, displayName]);
+
+  const joinRoom = async (name: string) => {
+    if (!firestore || !user) return;
+
+    const roomRef = doc(firestore, 'rooms', roomId);
+    const roomUserRef = doc(firestore, `rooms/${roomId}/users`, user.uid);
+
+    try {
+      const batch = writeBatch(firestore);
+
+      // Set the room document
+      batch.set(roomRef, {
+          createdAt: serverTimestamp(),
+          hostId: user.uid,
+      }, { merge: true });
+
+      // Set the user document in the subcollection
+      batch.set(roomUserRef, {
+          displayName: name,
+          isConnected: true,
+          isHost: true, 
+          isMuted: !isMicOn,
+          cameraEnabled: isCameraOn,
+      }, { merge: true });
+      
+      await batch.commit();
+
+    } catch (error) {
+      console.error("Error joining room:", error);
+      toast({
+        variant: "destructive",
+        title: "Failed to Join Room",
+        description: "Could not write user data to the room.",
+      });
+    }
+  };
 
 
   const handleNameSet = (name: string) => {
     setDisplayName(name);
+    setIsNameDialogOpen(false);
+    
     // Only save display name for non-anonymous users
     if (user && firestore && !user.isAnonymous) {
       const userRef = doc(firestore, 'users', user.uid);
       setDocumentNonBlocking(userRef, { displayName: name }, { merge: true });
     }
-    setIsNameDialogOpen(false);
+    
+    joinRoom(name);
   }
 
   const handleToggleScreenShare = async () => {
