@@ -80,6 +80,11 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
                 setLocalStream(stream);
             } catch (err) {
                 console.error("Error accessing media devices.", err);
+                toast({
+                  variant: "destructive",
+                  title: "Device Error",
+                  description: "Could not access media devices. Please check browser permissions.",
+                });
                 setIsCameraOn(false);
                 setIsMicOn(false);
             }
@@ -112,17 +117,19 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
         isChatOpen && "lg:grid-cols-[1fr_auto]"
       )}>
         <div className="relative flex flex-col overflow-hidden">
-          <main className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
+          <main className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
             <VideoPlayer 
               roomId={roomId}
               screenShareStream={isScreenSharing ? screenStreamRef.current : null} 
             />
-            <ParticipantsGrid 
-              localStream={localStream} 
-              isMicOn={isMicOn} 
-              isCameraOn={isCameraOn} 
-              displayName={displayName}
-            />
+            <div className="flex-1 overflow-y-auto">
+              <ParticipantsGrid 
+                localStream={localStream} 
+                isMicOn={isMicOn} 
+                isCameraOn={isCameraOn} 
+                displayName={displayName}
+              />
+            </div>
           </main>
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
             <AVControls 
@@ -138,7 +145,9 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
             />
           </div>
         </div>
-        {isChatOpen && <ChatSidebar displayName={displayName} />}
+        <div className={cn("h-full", !isChatOpen && "hidden")}>
+          <ChatSidebar displayName={displayName} />
+        </div>
       </div>
       <SettingsDialog
         isOpen={isSettingsOpen}

@@ -67,15 +67,15 @@ export function ChatSidebar({ displayName }: { displayName: string }) {
     }, [messages]);
 
     return (
-        <Card className="flex flex-col h-full border-l rounded-none w-[350px]">
+        <Card className="flex flex-col border-l rounded-none w-[350px] h-full">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-headline">
                     <MessageSquare className="h-6 w-6" />
                     Chat
                 </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 p-0 overflow-y-hidden">
-                <ScrollArea className="h-full p-4" ref={scrollAreaRef}>
+            <CardContent className="flex-1 overflow-hidden p-0">
+                <ScrollArea className="h-full p-6" ref={scrollAreaRef}>
                     <div className="space-y-4">
                         {messages.map((msg, index) => {
                             const avatar = PlaceHolderImages.find(img => img.id === msg.avatar)
