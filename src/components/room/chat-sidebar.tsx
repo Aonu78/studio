@@ -74,7 +74,7 @@ export function ChatSidebar({ displayName }: { displayName: string }) {
                     Chat
                 </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 p-0 overflow-y-auto">
+            <CardContent className="flex-1 p-0 overflow-y-hidden">
                 <ScrollArea className="h-full p-4" ref={scrollAreaRef}>
                     <div className="space-y-4">
                         {messages.map((msg, index) => {
