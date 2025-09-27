@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { Header } from "@/components/header";
 import { VideoPlayer } from "@/components/room/video-player";
 import { ChatSidebar } from "@/components/room/chat-sidebar";
@@ -8,7 +8,8 @@ import { ParticipantsGrid } from "@/components/room/participants-grid";
 import { AVControls } from "@/components/room/av-controls";
 import { cn } from "@/lib/utils";
 
-export default function RoomPage({ params }: { params: { id: string } }) {
+export default function RoomPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: roomId } = use(params);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(true);
@@ -22,7 +23,7 @@ export default function RoomPage({ params }: { params: { id: string } }) {
       )}>
         <div className="relative flex flex-col overflow-hidden">
           <main className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
-            <VideoPlayer roomId={params.id} />
+            <VideoPlayer roomId={roomId} />
             <ParticipantsGrid isMicOn={isMicOn} isCameraOn={isCameraOn} />
           </main>
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
