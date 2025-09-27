@@ -43,13 +43,13 @@ export function ChatSidebar({ displayName, roomId }: { displayName: string, room
 
     const handleSendMessage = (e: FormEvent) => {
         e.preventDefault();
-        if (chatInput.trim() === "" || !user || !messagesCollectionRef) return;
+        if (chatInput.trim() === "" || !messagesCollectionRef || !displayName) return;
 
         const newMessage = {
-            user: displayName || user.displayName || 'Anonymous',
-            userId: user.uid,
+            user: displayName,
+            userId: user?.uid || 'guest',
             text: chatInput,
-            avatar: user.photoURL || 'avatar-1',
+            avatar: user?.photoURL || 'avatar-1',
             timestamp: serverTimestamp(),
             expireAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
         };
@@ -67,6 +67,8 @@ export function ChatSidebar({ displayName, roomId }: { displayName: string, room
         }
     }, [messages]);
 
+    const canChat = !!displayName;
+
     return (
         <Card className="flex flex-col border-l rounded-none w-[350px] h-full">
             <CardHeader className="flex-shrink-0">
@@ -75,13 +77,13 @@ export function ChatSidebar({ displayName, roomId }: { displayName: string, room
                     Chat
                 </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col p-0">
-                <ScrollArea className="h-full p-6" ref={scrollAreaRef}>
+            <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+                <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
                     <div className="space-y-4">
                         {isLoading && <p>Loading messages...</p>}
                         {messages && messages.map((msg) => {
                             const avatar = PlaceHolderImages.find(img => img.id === msg.avatar) || (msg.avatar && !msg.avatar.startsWith('avatar-') ? { imageUrl: msg.avatar } : null);
-                            const isYou = msg.userId === user?.uid;
+                            const isYou = msg.userId === (user?.uid || 'guest') && msg.user === displayName;
                             return (
                                 <div key={msg.id} className={cn("flex items-start gap-3", isYou && "justify-end")}>
                                     {!isYou && (
@@ -100,7 +102,7 @@ export function ChatSidebar({ displayName, roomId }: { displayName: string, room
                                     {isYou && (
                                         <Avatar className="h-8 w-8">
                                             {avatar && <AvatarImage src={avatar.imageUrl} />}
-                                            <AvatarFallback>{msg.user?.charAt(0)}</AvatarFallback>
+                                            <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                     )}
                                 </div>
@@ -119,13 +121,13 @@ export function ChatSidebar({ displayName, roomId }: { displayName: string, room
                             value={chatInput}
                             onChange={(e) => setChatInput(e.target.value)}
                             className="pr-10"
-                            disabled={!user}
+                            disabled={!canChat}
                         />
                         <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8">
                             <Smile className="h-5 w-5 text-muted-foreground" />
                         </Button>
                     </div>
-                    <Button type="submit" size="icon" disabled={!user}>
+                    <Button type="submit" size="icon" disabled={!canChat || chatInput.trim() === ""}>
                         <Send className="h-4 w-4" />
                         <span className="sr-only">Send Message</span>
                     </Button>
