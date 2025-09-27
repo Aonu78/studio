@@ -23,7 +23,7 @@ import {
 import { Card, CardContent } from "../ui/card";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useSearchParams } from 'next/navigation';
-import ReactPlayer from 'react-player/lazy';
+import ReactPlayer from 'react-player';
 
 
 export function VideoPlayer({ roomId, screenShareStream }: { roomId: string, screenShareStream: MediaStream | null }) {
