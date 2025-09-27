@@ -9,6 +9,7 @@ import Link from "next/link";
 import { CreateRoomDialog } from "@/components/create-room-dialog";
 
 export default function Home() {
+  const heroImage = PlaceHolderImages.find(img => img.id === 'hero-background');
 
   const features = [
     {
@@ -54,18 +55,16 @@ export default function Home() {
       <main className="flex-1">
         {/* Hero Section */}
         <section className="relative h-[60vh] flex items-center justify-center text-center text-white overflow-hidden">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="absolute z-0 w-auto min-w-full min-h-full max-w-none"
-          >
-            <source
-              src="https://cdn-front.freepik.com/revamp/temp/hero/v4-home-video-with-logos.webm"
-              type="video/webm"
+        {heroImage && (
+            <Image
+              src={heroImage.imageUrl}
+              alt={heroImage.description}
+              fill
+              className="object-cover"
+              priority
+              data-ai-hint={heroImage.imageHint}
             />
-          </video>
+          )}
           <div className="absolute inset-0 bg-black/60" />
           <div className="relative z-10 p-4">
             <h1 className="text-4xl md:text-6xl font-bold font-headline">
