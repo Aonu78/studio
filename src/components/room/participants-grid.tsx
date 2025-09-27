@@ -11,7 +11,9 @@ import { cn } from '@/lib/utils';
 
 interface ParticipantsGridProps {
   localStream: MediaStream | null;
-  setLocalStream: React.Dispatch<React.SetStateAction<MediaStream | null>>;
+  isMicOn: boolean;
+  isCameraOn: boolean;
+  displayName: string;
 }
 
 const mockParticipantsList = [
@@ -21,17 +23,17 @@ const mockParticipantsList = [
   { id: '5', name: 'Diana', avatarId: 'avatar-5', isHost: false, micOn: true, videoOn: true },
 ];
 
-export function ParticipantsGrid({ localStream, setLocalStream }: ParticipantsGridProps) {
+export function ParticipantsGrid({ localStream, isMicOn, isCameraOn, displayName }: ParticipantsGridProps) {
   const { user } = useUser();
   const [participants, setParticipants] = useState(mockParticipantsList);
 
   const currentUserParticipant = {
     id: user?.uid || '1',
-    name: user?.displayName || 'You',
+    name: displayName || 'You',
     avatarId: 'avatar-1',
     isHost: true,
-    micOn: true, // This will be controlled from RoomPage
-    videoOn: true, // This will be controlled from RoomPage
+    micOn: isMicOn,
+    videoOn: isCameraOn,
   };
 
   const allParticipants = [currentUserParticipant, ...participants];
@@ -46,7 +48,8 @@ export function ParticipantsGrid({ localStream, setLocalStream }: ParticipantsGr
             participant={p}
             isYou={isYou}
             localStream={isYou ? localStream : null}
-            setLocalStream={isYou ? setLocalStream : undefined}
+            isMicOn={isYou ? isMicOn : p.micOn}
+            isCameraOn={isYou ? isCameraOn : p.videoOn}
           />
         );
       })}
@@ -56,47 +59,44 @@ export function ParticipantsGrid({ localStream, setLocalStream }: ParticipantsGr
 
 
 interface ParticipantTileProps {
-  participant: typeof mockParticipantsList[0] & { id: string };
+  participant: typeof mockParticipantsList[0] & { id: string, name: string };
   isYou: boolean;
   localStream: MediaStream | null;
-  setLocalStream?: React.Dispatch<React.SetStateAction<MediaStream | null>>;
+  isMicOn: boolean;
+  isCameraOn: boolean;
 }
 
-function ParticipantTile({ participant, isYou, localStream, setLocalStream }: ParticipantTileProps) {
+function ParticipantTile({ participant, isYou, localStream, isMicOn, isCameraOn }: ParticipantTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const avatar = PlaceHolderImages.find(img => img.id === participant.avatarId);
-  const [videoOn, setVideoOn] = useState(participant.videoOn);
-
-  useEffect(() => {
-    if (isYou) {
-      const getMedia = async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-          if (setLocalStream) setLocalStream(stream);
-          setVideoOn(true);
-        } catch (err) {
-          console.error("Error accessing media devices.", err);
-          setVideoOn(false);
-        }
-      };
-      getMedia();
-    }
-  }, [isYou, setLocalStream]);
-
+  
   useEffect(() => {
     if (videoRef.current && localStream) {
-      videoRef.current.srcObject = localStream;
+        if (videoRef.current.srcObject !== localStream) {
+            videoRef.current.srcObject = localStream;
+        }
+        const videoTrack = localStream.getVideoTracks()[0];
+        if (videoTrack) {
+            videoTrack.enabled = isCameraOn;
+        }
+        const audioTrack = localStream.getAudioTracks()[0];
+        if (audioTrack) {
+            audioTrack.enabled = isMicOn;
+        }
+    } else if (videoRef.current) {
+        videoRef.current.srcObject = null;
     }
-  }, [localStream]);
+  }, [localStream, isCameraOn, isMicOn]);
 
-  const MicIcon = participant.micOn ? Mic : MicOff;
-  const VideoIcon = videoOn ? Video : VideoOff;
+
+  const MicIcon = isMicOn ? Mic : MicOff;
+  const VideoIcon = isCameraOn ? Video : VideoOff;
 
   return (
     <Card className="relative group overflow-hidden">
       <CardContent className="p-0">
         <div className="aspect-video bg-secondary rounded-lg flex items-center justify-center">
-          {videoOn ? (
+          {isCameraOn && localStream ? (
             <video ref={videoRef} autoPlay playsInline muted={isYou} className="w-full h-full object-cover" />
           ) : (
              <div className={cn(
@@ -123,15 +123,15 @@ function ParticipantTile({ participant, isYou, localStream, setLocalStream }: Pa
         </div>
 
         <div className="absolute bottom-2 left-2 flex items-center gap-2">
-          <Badge variant={participant.isHost ? 'default' : 'secondary'}>{isYou ? 'You' : participant.name}</Badge>
+          <Badge variant={participant.isHost ? 'default' : 'secondary'}>{isYou ? participant.name : participant.name}</Badge>
         </div>
 
         <div className="absolute top-2 right-2 flex items-center gap-2">
-          <div className={`p-1.5 rounded-full ${participant.micOn ? 'bg-black/20' : 'bg-destructive'}`}>
+          <div className={`p-1.5 rounded-full ${isMicOn ? 'bg-black/20' : 'bg-destructive'}`}>
               <MicIcon className="h-4 w-4 text-white" />
           </div>
            {!isYou && (
-              <div className={`p-1.5 rounded-full ${videoOn ? 'bg-black/20' : 'bg-destructive'}`}>
+              <div className={`p-1.5 rounded-full ${isCameraOn ? 'bg-black/20' : 'bg-destructive'}`}>
                   <VideoIcon className="h-4 w-4 text-white" />
               </div>
            )}

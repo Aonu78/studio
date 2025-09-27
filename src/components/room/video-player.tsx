@@ -21,13 +21,27 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Card, CardContent } from "../ui/card";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { useSearchParams } from 'next/navigation';
+import ReactPlayer from 'react-player/lazy';
 
 
 export function VideoPlayer({ roomId, screenShareStream }: { roomId: string, screenShareStream: MediaStream | null }) {
   const videoPlaceholder = PlaceHolderImages.find((img) => img.id === "video-placeholder-1");
   const shareableLink = typeof window !== 'undefined' ? `${window.location.origin}/room/${roomId}`: '';
   const videoRef = useRef<HTMLVideoElement>(null);
+  const searchParams = useSearchParams();
+  const [hasWindow, setHasWindow] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setHasWindow(true);
+    }
+  }, []);
+
+  const videoUrl = useMemo(() => {
+    return searchParams.get('sourceUrl');
+  }, [searchParams]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -40,12 +54,22 @@ export function VideoPlayer({ roomId, screenShareStream }: { roomId: string, scr
     }
   }, [screenShareStream]);
 
+  const isYouTube = videoUrl && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be'));
+
   return (
     <Card className="overflow-hidden relative group">
       <CardContent className="p-0">
         <AspectRatio ratio={16 / 9} className="bg-black">
           {screenShareStream ? (
             <video ref={videoRef} className="w-full h-full object-contain" autoPlay playsInline />
+          ) : hasWindow && videoUrl ? (
+            <ReactPlayer
+              url={videoUrl}
+              width="100%"
+              height="100%"
+              playing={true}
+              controls={true}
+            />
           ) : (
             videoPlaceholder && (
               <Image
@@ -57,12 +81,12 @@ export function VideoPlayer({ roomId, screenShareStream }: { roomId: string, scr
               />
             )
           )}
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-4">
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-4 pointer-events-none">
             
             {/* Top Controls */}
             <div className="flex justify-between items-center">
                 <h2 className="text-lg font-bold text-white shadow-md">Movie Title Here</h2>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 pointer-events-auto">
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -94,26 +118,27 @@ export function VideoPlayer({ roomId, screenShareStream }: { roomId: string, scr
             </div>
 
             {/* Bottom Controls */}
-            <div className="flex flex-col gap-2">
-                {/* Seek Bar */}
-                <Slider defaultValue={[33]} max={100} step={1} className="w-full" />
-                <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
-                            <Play className="h-6 w-6" />
-                        </Button>
-                        <div className="flex items-center gap-2">
-                            <Volume2 className="h-5 w-5 text-white" />
-                            <Slider defaultValue={[50]} max={100} step={1} className="w-24" />
-                        </div>
-                        <span className="text-white text-xs">15:30 / 45:00</span>
-                    </div>
-                    <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
-                        <Maximize className="h-5 w-5" />
-                    </Button>
-                </div>
-            </div>
-
+            {!isYouTube && (
+              <div className="flex flex-col gap-2 pointer-events-auto">
+                  {/* Seek Bar */}
+                  <Slider defaultValue={[33]} max={100} step={1} className="w-full" />
+                  <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
+                              <Play className="h-6 w-6" />
+                          </Button>
+                          <div className="flex items-center gap-2">
+                              <Volume2 className="h-5 w-5 text-white" />
+                              <Slider defaultValue={[50]} max={100} step={1} className="w-24" />
+                          </div>
+                          <span className="text-white text-xs">15:30 / 45:00</span>
+                      </div>
+                      <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
+                          <Maximize className="h-5 w-5" />
+                      </Button>
+                  </div>
+              </div>
+            )}
           </div>
         </AspectRatio>
       </CardContent>

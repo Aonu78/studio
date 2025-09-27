@@ -22,9 +22,17 @@ import { UploadCloud, Link, Monitor } from "lucide-react"
 
 const formSchema = z.object({
   sourceType: z.enum(["url", "upload", "screen"]),
-  sourceUrl: z.string().url({ message: "Please enter a valid URL." }).optional(),
+  sourceUrl: z.string().optional(),
   sourceFile: z.any().optional(),
   mode: z.enum(["watch", "hangout"]),
+}).refine(data => {
+    if (data.sourceType === 'url') {
+        return !!data.sourceUrl && z.string().url().safeParse(data.sourceUrl).success;
+    }
+    return true;
+}, {
+    message: "Please enter a valid URL.",
+    path: ["sourceUrl"],
 })
 
 export function CreateRoomForm() {
@@ -40,10 +48,18 @@ export function CreateRoomForm() {
   })
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    // In a real app, you would create the room and get an ID
     const newRoomId = Math.random().toString(36).substr(2, 9)
     console.log("Creating room with values:", values)
-    router.push(`/room/${newRoomId}`)
+    
+    const queryParams = new URLSearchParams();
+    if (values.sourceType === 'url' && values.sourceUrl) {
+      queryParams.set('sourceUrl', values.sourceUrl);
+    }
+    if (values.sourceType === 'screen') {
+      queryParams.set('startScreenShare', 'true');
+    }
+    
+    router.push(`/room/${newRoomId}?${queryParams.toString()}`)
   }
 
   return (

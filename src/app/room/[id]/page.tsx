@@ -9,18 +9,31 @@ import { AVControls } from "@/components/room/av-controls";
 import { cn } from "@/lib/utils";
 import { SettingsDialog } from "@/components/room/settings-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/firebase";
+import { SetNameDialog } from "@/components/room/set-name-dialog";
 
 
 export default function RoomPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: roomId } = use(params);
-  const [isMicOn, setIsMicOn] = useState(true);
-  const [isCameraOn, setIsCameraOn] = useState(true);
+  const [isMicOn, setIsMicOn] = useState(false);
+  const [isCameraOn, setIsCameraOn] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isNameDialogOpen, setIsNameDialogOpen] = useState(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
+  const [displayName, setDisplayName] = useState(user?.displayName || "");
+
+  useEffect(() => {
+    if (!isUserLoading && !user?.displayName) {
+      setIsNameDialogOpen(true);
+    } else if (user?.displayName) {
+      setDisplayName(user.displayName);
+    }
+  }, [isUserLoading, user]);
 
   const handleToggleScreenShare = async () => {
     if (isScreenSharing) {
@@ -50,6 +63,40 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   };
 
   useEffect(() => {
+    const getMedia = async () => {
+        if (isCameraOn || isMicOn) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: isCameraOn, audio: isMicOn });
+                if (!isCameraOn) {
+                    stream.getVideoTracks().forEach(track => {
+                        track.enabled = false;
+                    });
+                }
+                if (!isMicOn) {
+                    stream.getAudioTracks().forEach(track => {
+                        track.enabled = false;
+                    });
+                }
+                setLocalStream(stream);
+            } catch (err) {
+                console.error("Error accessing media devices.", err);
+                setIsCameraOn(false);
+                setIsMicOn(false);
+            }
+        } else {
+            localStream?.getTracks().forEach(track => track.stop());
+            setLocalStream(null);
+        }
+    };
+    getMedia();
+
+    return () => {
+        localStream?.getTracks().forEach(track => track.stop());
+    }
+  }, [isCameraOn, isMicOn]);
+
+
+  useEffect(() => {
     // Clean up streams on component unmount
     return () => {
       localStream?.getTracks().forEach(track => track.stop());
@@ -70,7 +117,12 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
               roomId={roomId}
               screenShareStream={isScreenSharing ? screenStreamRef.current : null} 
             />
-            <ParticipantsGrid localStream={localStream} setLocalStream={setLocalStream} />
+            <ParticipantsGrid 
+              localStream={localStream} 
+              isMicOn={isMicOn} 
+              isCameraOn={isCameraOn} 
+              displayName={displayName}
+            />
           </main>
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
             <AVControls 
@@ -86,11 +138,16 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
             />
           </div>
         </div>
-        {isChatOpen && <ChatSidebar />}
+        {isChatOpen && <ChatSidebar displayName={displayName} />}
       </div>
       <SettingsDialog
         isOpen={isSettingsOpen}
         onOpenChange={setIsSettingsOpen}
+      />
+       <SetNameDialog
+        isOpen={isNameDialogOpen}
+        onOpenChange={setIsNameDialogOpen}
+        onNameSet={setDisplayName}
       />
     </div>
   );

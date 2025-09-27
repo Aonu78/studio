@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, FormEvent } from "react"
+import { useState, FormEvent, useRef, useEffect } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,25 +20,24 @@ interface ChatMessage {
 
 const initialMessages: ChatMessage[] = [
   { user: 'Alice', text: 'This movie is awesome!', avatar: 'avatar-2', time: '10:30 PM' },
-  { user: 'You', text: 'Right? I love this scene!', avatar: 'avatar-1', time: '10:31 PM' },
   { user: 'Bob', text: 'Has anyone seen the sequel?', avatar: 'avatar-3', time: '10:31 PM' },
   { user: 'Charlie', text: 'No spoilers please!', avatar: 'avatar-4', time: '10:32 PM' },
   { user: 'Diana', text: '😂', avatar: 'avatar-5', time: '10:32 PM' },
   { user: 'Alice', text: 'The cinematography is just breathtaking.', avatar: 'avatar-2', time: '10:35 PM' },
-  { user: 'You', text: 'Totally agree.', avatar: 'avatar-1', time: '10:35 PM' },
 ];
 
 
-export function ChatSidebar() {
+export function ChatSidebar({ displayName }: { displayName: string }) {
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
     const [chatInput, setChatInput] = useState("");
+    const scrollAreaRef = useRef<HTMLDivElement>(null);
 
     const handleSendMessage = (e: FormEvent) => {
         e.preventDefault();
         if (chatInput.trim() === "") return;
 
         const newMessage: ChatMessage = {
-            user: 'You',
+            user: displayName || 'You',
             text: chatInput,
             avatar: 'avatar-1',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -47,6 +46,12 @@ export function ChatSidebar() {
         setMessages(prev => [...prev, newMessage]);
         setChatInput("");
     };
+
+    useEffect(() => {
+        if (scrollAreaRef.current) {
+            scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+        }
+    }, [messages]);
 
     return (
         <Card className="flex flex-col h-full border-l rounded-none w-[350px]">
@@ -57,11 +62,11 @@ export function ChatSidebar() {
                 </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden p-0">
-                <ScrollArea className="h-full p-4">
+                <ScrollArea className="h-full p-4" ref={scrollAreaRef}>
                     <div className="space-y-4">
                         {messages.map((msg, index) => {
                             const avatar = PlaceHolderImages.find(img => img.id === msg.avatar)
-                            const isYou = msg.user === 'You';
+                            const isYou = msg.user === displayName;
                             return (
                                 <div key={index} className={cn("flex items-start gap-3", isYou && "justify-end")}>
                                     {!isYou && (
