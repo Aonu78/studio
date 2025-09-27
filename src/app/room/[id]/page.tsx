@@ -15,7 +15,7 @@ import { doc, setDoc, serverTimestamp, collection } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
 
 
-export default function RoomPage({ params }: { params: Promise<{ id: string }> }) {
+export default function RoomPage({ params }: { params: { id: string } }) {
   const { id: roomId } = use(params);
   const [isMicOn, setIsMicOn] = useState(false);
   const [isCameraOn, setIsCameraOn] = useState(false);
@@ -59,10 +59,8 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
       return; 
     }
 
-    if (!displayName && !user.isAnonymous) {
-      setIsNameDialogOpen(true);
-    } else if (user.isAnonymous && !displayName) {
-      setIsNameDialogOpen(true);
+    if (!displayName) {
+        setIsNameDialogOpen(true);
     } else {
         if(roomRef) {
             setDocumentNonBlocking(roomRef, {
@@ -72,13 +70,16 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
         }
 
         if(roomUserRef) {
-            setDocumentNonBlocking(roomUserRef, {
-                displayName: user.displayName || displayName,
-                isConnected: true,
-                isHost: true, 
-                isMuted: !isMicOn,
-                cameraEnabled: isCameraOn,
-            }, { merge: true });
+            // We ensure the room document is created before trying to add the user
+            setTimeout(() => {
+                setDocumentNonBlocking(roomUserRef, {
+                    displayName: displayName,
+                    isConnected: true,
+                    isHost: true, 
+                    isMuted: !isMicOn,
+                    cameraEnabled: isCameraOn,
+                }, { merge: true });
+            }, 500); // A small delay to allow room creation
         }
     }
   }, [isUserLoading, user, auth, toast, displayName, firestore, roomRef, roomUserRef, isMicOn, isCameraOn]);
@@ -91,6 +92,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
       const userRef = doc(firestore, 'users', user.uid);
       setDocumentNonBlocking(userRef, { displayName: name }, { merge: true });
     }
+    setIsNameDialogOpen(false);
   }
 
   const handleToggleScreenShare = async () => {
