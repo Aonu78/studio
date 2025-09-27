@@ -19,11 +19,21 @@ interface ChatMessage {
 }
 
 const initialMessages: ChatMessage[] = [
-  { user: 'Alice', text: 'This movie is awesome!', avatar: 'avatar-2', time: '10:30 PM' },
-  { user: 'Bob', text: 'Has anyone seen the sequel?', avatar: 'avatar-3', time: '10:31 PM' },
-  { user: 'Charlie', text: 'No spoilers please!', avatar: 'avatar-4', time: '10:32 PM' },
-  { user: 'Diana', text: '😂', avatar: 'avatar-5', time: '10:32 PM' },
-  { user: 'Alice', text: 'The cinematography is just breathtaking.', avatar: 'avatar-2', time: '10:35 PM' },
+    { user: 'Alice', text: 'This movie is awesome!', avatar: 'avatar-2', time: '10:30 PM' },
+    { user: 'Bob', text: 'Has anyone seen the sequel?', avatar: 'avatar-3', time: '10:31 PM' },
+    { user: 'Charlie', text: 'No spoilers please!', avatar: 'avatar-4', time: '10:32 PM' },
+    { user: 'Diana', text: '😂', avatar: 'avatar-5', time: '10:32 PM' },
+    { user: 'Alice', text: 'The cinematography is just breathtaking.', avatar: 'avatar-2', time: '10:35 PM' },
+    { user: 'Eve', text: 'I agree, the visuals are stunning.', avatar: 'avatar-6', time: '10:36 PM' },
+    { user: 'Frank', text: 'The soundtrack is also incredible.', avatar: 'avatar-1', time: '10:37 PM' },
+    { user: 'Grace', text: 'Who is the lead actor?', avatar: 'avatar-2', time: '10:38 PM' },
+    { user: 'Heidi', text: 'I think it\'s the same person from that other film.', avatar: 'avatar-3', time: '10:39 PM' },
+    { user: 'Ivan', text: 'Oh, right! He was great in that.', avatar: 'avatar-4', time: '10:40 PM' },
+    { user: 'Judy', text: 'Can we rewind a bit? I missed that last part.', avatar: 'avatar-5', time: '10:41 PM' },
+    { user: 'Mallory', text: 'The host can control playback.', avatar: 'avatar-6', time: '10:42 PM' },
+    { user: 'Oscar', text: 'This is so much better than watching alone!', avatar: 'avatar-1', time: '10:43 PM' },
+    { user: 'Peggy', text: 'Totally!', avatar: 'avatar-2', time: '10:44 PM' },
+    { user: 'Walter', text: 'Let\'s do this again next week.', avatar: 'avatar-3', time: '10:45 PM' },
 ];
 
 
@@ -49,7 +59,10 @@ export function ChatSidebar({ displayName }: { displayName: string }) {
 
     useEffect(() => {
         if (scrollAreaRef.current) {
-            scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+            const viewport = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
+            if (viewport) {
+                viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+            }
         }
     }, [messages]);
 
