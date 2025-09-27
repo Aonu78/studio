@@ -41,7 +41,7 @@ export function SetNameDialog({ isOpen, onOpenChange, onNameSet }: SetNameDialog
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
     onNameSet(values.name);
-    if (user && firestore) {
+    if (user && firestore && !user.isAnonymous) {
       const userRef = doc(firestore, 'users', user.uid);
       setDocumentNonBlocking(userRef, { displayName: values.name }, { merge: true });
     }

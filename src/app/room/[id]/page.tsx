@@ -60,13 +60,10 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
   const handleNameSet = (name: string) => {
     setDisplayName(name);
-    if (user && firestore) {
+    // Only save display name for non-anonymous users
+    if (user && firestore && !user.isAnonymous) {
       const userRef = doc(firestore, 'users', user.uid);
-      // For anonymous users, we don't need to persist the name in Firestore
-      // unless we want to upgrade the account later. For simplicity, we just set it in the state.
-      if (!user.isAnonymous) {
-        setDocumentNonBlocking(userRef, { displayName: name }, { merge: true });
-      }
+      setDocumentNonBlocking(userRef, { displayName: name }, { merge: true });
     }
   }
 
