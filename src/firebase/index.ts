@@ -3,7 +3,7 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore'
+import { getFirestore, type Firestore } from 'firebase/firestore'
 
 type FirebaseServices = {
   firebaseApp: FirebaseApp;
@@ -21,11 +21,10 @@ function getFirebaseServices(): FirebaseServices {
 
   const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
   
-  // We are now also caching the firestore instance to prevent re-initialization
-  const db = initializeFirestore(app, {
-    localCache: memoryLocalCache(),
-  });
-  
+  // Use getFirestore() which handles initialization safely.
+  // This avoids the re-initialization error during hot-reloads.
+  const db = getFirestore(app);
+
   const auth = getAuth(app);
   
   firebaseServices = {
