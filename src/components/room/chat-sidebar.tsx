@@ -34,6 +34,11 @@ const initialMessages: ChatMessage[] = [
     { user: 'Oscar', text: 'This is so much better than watching alone!', avatar: 'avatar-1', time: '10:43 PM' },
     { user: 'Peggy', text: 'Totally!', avatar: 'avatar-2', time: '10:44 PM' },
     { user: 'Walter', text: 'Let\'s do this again next week.', avatar: 'avatar-3', time: '10:45 PM' },
+    { user: 'Nia', text: 'I\'m in!', avatar: 'avatar-5', time: '10:46 PM' },
+    { user: 'Steve', text: 'What are we watching next?', avatar: 'avatar-1', time: '10:47 PM' },
+    { user: 'Laura', text: 'Maybe a comedy?', avatar: 'avatar-2', time: '10:48 PM' },
+    { user: 'Zane', text: 'I am down for that.', avatar: 'avatar-6', time: '10:49 PM' },
+    { user: 'Megan', text: 'This has been fun!', avatar: 'avatar-4', time: '10:50 PM' },
 ];
 
 
@@ -68,13 +73,13 @@ export function ChatSidebar({ displayName }: { displayName: string }) {
 
     return (
         <Card className="flex flex-col border-l rounded-none w-[350px] h-full">
-            <CardHeader>
+            <CardHeader className="flex-shrink-0">
                 <CardTitle className="flex items-center gap-2 font-headline">
                     <MessageSquare className="h-6 w-6" />
                     Chat
                 </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 overflow-hidden p-0">
+            <CardContent className="flex-1 overflow-y-auto p-0">
                 <ScrollArea className="h-full p-6" ref={scrollAreaRef}>
                     <div className="space-y-4">
                         {messages.map((msg, index) => {
@@ -107,7 +112,7 @@ export function ChatSidebar({ displayName }: { displayName: string }) {
                     </div>
                 </ScrollArea>
             </CardContent>
-            <CardFooter className="flex-col items-start gap-2 border-t pt-4">
+            <CardFooter className="flex-col items-start gap-2 border-t pt-4 flex-shrink-0">
                 <EmojiSuggestions text={chatInput} onEmojiSelect={(emoji) => setChatInput(prev => prev + emoji)} />
                 <form onSubmit={handleSendMessage} className="flex w-full items-center space-x-2">
                     <div className="relative flex-1">
