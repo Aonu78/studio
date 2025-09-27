@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import { AspectRatio } from "@/components/aspect-ratio";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -19,24 +21,41 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Card, CardContent } from "../ui/card";
+import { useEffect, useRef } from "react";
 
 
-export function VideoPlayer({ roomId }: { roomId: string }) {
+export function VideoPlayer({ roomId, screenShareStream }: { roomId: string, screenShareStream: MediaStream | null }) {
   const videoPlaceholder = PlaceHolderImages.find((img) => img.id === "video-placeholder-1");
-  const shareableLink = `https://syncwatch.dev/room/${roomId}`;
+  const shareableLink = typeof window !== 'undefined' ? `${window.location.origin}/room/${roomId}`: '';
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      if (screenShareStream) {
+        videoRef.current.srcObject = screenShareStream;
+        videoRef.current.play().catch(e => console.error("Play failed", e));
+      } else {
+        videoRef.current.srcObject = null;
+      }
+    }
+  }, [screenShareStream]);
 
   return (
     <Card className="overflow-hidden relative group">
       <CardContent className="p-0">
         <AspectRatio ratio={16 / 9} className="bg-black">
-          {videoPlaceholder && (
-            <Image
-              src={videoPlaceholder.imageUrl}
-              alt={videoPlaceholder.description}
-              fill
-              className="object-cover rounded-t-lg"
-              data-ai-hint={videoPlaceholder.imageHint}
-            />
+          {screenShareStream ? (
+            <video ref={videoRef} className="w-full h-full object-contain" autoPlay playsInline />
+          ) : (
+            videoPlaceholder && (
+              <Image
+                src={videoPlaceholder.imageUrl}
+                alt={videoPlaceholder.description}
+                fill
+                className="object-cover rounded-t-lg"
+                data-ai-hint={videoPlaceholder.imageHint}
+              />
+            )
           )}
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-4">
             
@@ -47,7 +66,12 @@ export function VideoPlayer({ roomId }: { roomId: string }) {
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 hover:text-white">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-white hover:bg-white/20 hover:text-white"
+                                  onClick={() => navigator.clipboard.writeText(shareableLink)}
+                                >
                                     <Share2 className="h-5 w-5" />
                                 </Button>
                             </TooltipTrigger>

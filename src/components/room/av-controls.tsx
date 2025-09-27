@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Mic, MicOff, Video, VideoOff, ScreenShare, PhoneOff, Settings, ChevronUp, MessageSquareOff } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, ScreenShare, PhoneOff, Settings, ChevronUp, MessageSquareOff, ScreenShareOff } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AVControlsProps {
@@ -12,6 +12,9 @@ interface AVControlsProps {
     onToggleCamera: () => void;
     isChatOpen: boolean;
     onToggleChat: () => void;
+    isScreenSharing: boolean;
+    onToggleScreenShare: () => void;
+    onOpenSettings: () => void;
 }
 
 export function AVControls({
@@ -20,7 +23,10 @@ export function AVControls({
     isCameraOn,
     onToggleCamera,
     isChatOpen,
-    onToggleChat
+    onToggleChat,
+    isScreenSharing,
+    onToggleScreenShare,
+    onOpenSettings
 }: AVControlsProps) {
     return (
         <TooltipProvider>
@@ -46,16 +52,16 @@ export function AVControls({
                     
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="secondary" size="icon" className="rounded-full w-12 h-12">
-                                <ScreenShare className="h-6 w-6" />
+                            <Button variant={isScreenSharing ? "destructive" : "secondary"} size="icon" className="rounded-full w-12 h-12" onClick={onToggleScreenShare}>
+                               {isScreenSharing ? <ScreenShareOff className="h-6 w-6" /> : <ScreenShare className="h-6 w-6" />}
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Share Screen</TooltipContent>
+                        <TooltipContent>{isScreenSharing ? "Stop Sharing" : "Share Screen"}</TooltipContent>
                     </Tooltip>
                     
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="secondary" size="icon" className="rounded-full w-12 h-12">
+                            <Button variant="secondary" size="icon" className="rounded-full w-12 h-12" onClick={onOpenSettings}>
                                 <Settings className="h-6 w-6" />
                             </Button>
                         </TooltipTrigger>
